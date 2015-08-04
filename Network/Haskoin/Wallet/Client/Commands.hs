@@ -49,6 +49,7 @@ import Data.Maybe (listToMaybe, isNothing, fromJust, fromMaybe, isJust)
 import Data.List (intersperse, intercalate)
 import Data.Text (pack, unpack, splitOn)
 import Data.Word (Word64)
+import Data.Time.Clock (NominalDiffTime)
 import qualified Data.Yaml as YAML (encode)
 import qualified Data.Aeson.Encode.Pretty as JSON
     ( Config(..)
@@ -72,6 +73,7 @@ import Network.Haskoin.Transaction
 import Network.Haskoin.Script
 import Network.Haskoin.Util
 import Network.Haskoin.Constants
+import Network.Haskoin.Node.STM
 
 import Network.Haskoin.Wallet.Types
 import Network.Haskoin.Wallet.Settings
@@ -353,7 +355,9 @@ cmdVersion = liftIO $ do
     putStrLn $ unwords [ "database  :", unpack databaseEngine ]
 
 cmdStatus :: Handler ()
-cmdStatus = sendZmq (PostNodeR NodeActionStatus) $ \Null -> return ()
+cmdStatus = do
+    v <- R.asks configVerbose
+    sendZmq (PostNodeR NodeActionStatus) $ mapM_ putStrLn . printNodeStatus v
 
 {- Helpers -}
 
@@ -619,3 +623,60 @@ printTxType t = case t of
     TxIncoming -> "Incoming"
     TxOutgoing -> "Outgoing"
     TxSelf     -> "Self"
+
+printNodeStatus :: Bool -> NodeStatus -> [String]
+printNodeStatus verbose NodeStatus{..} = 
+    [ "Network Height    : " ++ show nodeStatusNetworkHeight
+    , "Best Header       : " ++ encodeBlockHashLE nodeStatusBestHeader
+    , "Best Header Height: " ++ show nodeStatusBestHeaderHeight
+    , "Best Block        : " ++ encodeBlockHashLE nodeStatusBestBlock
+    , "Bloom Filter Size : " ++ show nodeStatusBloomSize
+    ] ++
+    [ "Header Peer       : " ++ show (fromJust nodeStatusHeaderPeer) 
+    | isJust nodeStatusHeaderPeer && verbose
+    ] ++
+    [ "Merkle Peer       : " ++ show (fromJust nodeStatusMerklePeer) 
+    | isJust nodeStatusMerklePeer && verbose
+    ] ++
+    [ "Pending Headers   : " ++ show nodeStatusHaveHeaders | verbose ] ++
+    [ "Pending Tickles   : " ++ show nodeStatusHaveTickles | verbose ] ++
+    [ "Pending Txs       : " ++ show nodeStatusHaveTxs | verbose ] ++
+    [ "Pending GetData   : " ++ show (map encodeTxHashLE nodeStatusGetData) 
+    | verbose 
+    ] ++
+    [ "Pending Rescan    : " ++ show (fromJust nodeStatusRescan) 
+    | isJust nodeStatusRescan && verbose
+    ] ++
+    [ "Synced Mempool    : " ++ show nodeStatusMempool | verbose ] ++
+    [ "HeaderSync Lock   : " ++ show nodeStatusSyncLock | verbose ] ++
+    [ "LevelDB Lock      : " ++ show nodeStatusLevelDBLock | verbose ] ++
+    [ "Peers: " ] ++
+    concat (intersperse ["-"] (map (printPeerStatus verbose) nodeStatusPeers))
+
+printPeerStatus :: Bool -> PeerStatus -> [String]
+printPeerStatus verbose PeerStatus{..} = 
+    [ "  Peer Id  : " ++ show peerStatusPeerId
+    , "  Peer Host: " ++ peerHostString peerStatusHost
+    , "  Connected: " ++ if peerStatusConnected then "yes" else "no"
+    , "  Height   : " ++ show peerStatusHeight
+    ] ++
+    [ "  Protocol : " ++ show (fromJust peerStatusProtocol) 
+    | isJust peerStatusProtocol 
+    ] ++
+    [ "  UserAgent: " ++ fromJust peerStatusUserAgent
+    | isJust peerStatusUserAgent
+    ] ++
+    [ "  Avg Ping : " ++ (fromJust peerStatusPing)
+    | isJust peerStatusPing
+    ] ++
+    [ "  DoS Score: " ++ show (fromJust peerStatusDoSScore) 
+    | isJust peerStatusDoSScore
+    ] ++
+    [ "  ThreadId : " ++ peerStatusThreadId | verbose ] ++
+    [ "  Merkles  : " ++ show peerStatusHaveMerkles | verbose ] ++
+    [ "  Messages : " ++ show peerStatusHaveMessage | verbose ] ++
+    [ "  Nonces   : " ++ show peerStatusPingNonces | verbose ] ++
+    [ "  Reconnect: " ++ show (fromJust peerStatusReconnectTimer) 
+    | isJust peerStatusReconnectTimer && verbose
+    ]
+

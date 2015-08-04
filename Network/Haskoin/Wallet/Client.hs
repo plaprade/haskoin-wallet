@@ -119,6 +119,8 @@ options =
     , Option "w" ["workdir"]
         (ReqArg (\s cfg -> cfg { configDir = s }) "DIR")
         "Working directory (OS-specific default)"
+    , Option "v" ["verbose"]
+        (NoArg $ \cfg -> cfg { configVerbose = True }) "Verbose"
     ]
 
 -- Create and change current working directory

@@ -70,23 +70,13 @@ import Data.Aeson.Types
     )
 import Data.Aeson.TH (deriveJSON)
 import Data.Aeson
-    ( Value (..)
-    , FromJSON
-    , ToJSON
-    , encode
-    , decodeStrict'
-    , withObject
+    ( Value (..), FromJSON, ToJSON, encode
+    , decodeStrict', withObject
     , (.=), (.:), (.:?), (.!=)
-    , object
-    , parseJSON
-    , toJSON
+    , object, parseJSON, toJSON
     )
 
-import Database.Persist.Class
-    ( PersistField
-    , toPersistValue
-    , fromPersistValue 
-    )
+import Database.Persist.Class (PersistField, toPersistValue, fromPersistValue)
 import Database.Persist.Types (PersistValue(..))
 import Database.Persist.Sql (PersistFieldSql, SqlType(..), sqlType)
 
@@ -96,8 +86,6 @@ import Network.Haskoin.Script
 import Network.Haskoin.Transaction
 import Network.Haskoin.Node
 import Network.Haskoin.Util
-
-import Network.Haskoin.Wallet.Types.DeriveJSON
 
 type KeyRingName = Text
 type AccountName = Text
